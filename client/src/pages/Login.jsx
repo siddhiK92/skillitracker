@@ -25,7 +25,6 @@ export default function Login() {
 
     try {
       const u = await login(email.trim(), password);
-
       toast.success(`Welcome back, ${u.name}!`);
 
       if (u.isAdmin) navigate('/admin-dashboard');
@@ -40,157 +39,85 @@ export default function Login() {
 
   return (
     <div style={S.page}>
-      {/* LEFT */}
-      <div style={S.left}>
-        <div style={S.blob1} />
-        <div style={S.blob2} />
-
-        <div style={S.leftInner}>
-          <div style={S.logoBox}>
-            <LogoIcon />
+      <form style={S.form} onSubmit={submit}>
+        
+        <div style={S.brandRow}>
+          <div style={S.brandIcon}>
+            <LogoIcon size={20} />
           </div>
-
-          <h2 style={S.leftH}>
-            Track your team,<br />in real time.
-          </h2>
-
-          <p style={S.leftP}>
-            Punch in, submit EOD reports, and stay aligned — all in one place.
-          </p>
-
-          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            {[
-              'Live attendance tracking',
-              'Working hours auto-calculation',
-              'Daily EOD reports',
-              'Admin oversight panel'
-            ].map(f => (
-              <div key={f} style={S.feat}>
-                <span style={S.featDot} />{f}
-              </div>
-            ))}
-          </div>
+          <h1 style={S.h1}>SkilliTrack</h1>
         </div>
-      </div>
 
-      {/* RIGHT */}
-      <div style={S.right}>
-        <form style={S.form} onSubmit={submit}>
-          <div style={S.brandRow}>
-            <div style={S.brandIcon}>
-              <LogoIcon size={20} />
-            </div>
-            <h1 style={S.h1}>SkilliTrack</h1>
-          </div>
+        <p style={S.sub}>Sign in to your workspace</p>
 
-          <p style={S.sub}>Sign in to your workspace</p>
+        {/* Email */}
+        <div style={{ marginTop:28 }}>
+          <label>Email Address</label>
+          <input
+            style={S.input}
+            type="email"
+            placeholder="you@company.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onFocus={(e)=> e.target.style.border='1px solid #6366F1'}
+            onBlur={(e)=> e.target.style.border='1px solid #E5E7EB'}
+          />
+        </div>
 
-          {/* Email */}
-          <div style={{ marginTop:28 }}>
-            <label>Email Address</label>
+        {/* Password */}
+        <div style={{ marginTop:16 }}>
+          <label>Password</label>
+
+          <div style={{ position:'relative' }}>
             <input
-              style={S.input}
-              type="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-
-              // ✅ ADD: focus effect
+              style={{ ...S.input, paddingRight:40 }}
+              type={show ? 'text' : 'password'}
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               onFocus={(e)=> e.target.style.border='1px solid #6366F1'}
               onBlur={(e)=> e.target.style.border='1px solid #E5E7EB'}
             />
+
+            <button
+              type="button"
+              onClick={() => setShow(!show)}
+              style={S.eye}
+            >
+              {show ? <EyeOff /> : <EyeOn />}
+            </button>
           </div>
+        </div>
 
-          {/* Password */}
-          <div style={{ marginTop:16 }}>
-            <label>Password</label>
+        {/* Button */}
+        <button type="submit" style={S.btn} disabled={busy}>
+          {busy ? 'Signing in...' : 'Sign In'}
+        </button>
 
-            <div style={{ position:'relative' }}>
-              <input
-                style={{ ...S.input, paddingRight:40 }}
-                type={show ? 'text' : 'password'}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+        <p style={S.foot}>
+          Don't have an account?{' '}
+          <Link to="/register" style={{ color:'#6366F1', fontWeight:600 }}>
+            Create one
+          </Link>
+        </p>
 
-                // ✅ ADD: focus effect
-                onFocus={(e)=> e.target.style.border='1px solid #6366F1'}
-                onBlur={(e)=> e.target.style.border='1px solid #E5E7EB'}
-              />
-
-              <button
-                type="button"
-                onClick={() => setShow(!show)}
-                style={S.eye}
-              >
-                {show ? <EyeOff /> : <EyeOn />}
-              </button>
-            </div>
-          </div>
-
-          {/* Button */}
-          <button
-            type="submit"   // ✅ FIX (important)
-            style={S.btn}
-            disabled={busy}
-          >
-            {busy ? 'Signing in...' : 'Sign In'}
-          </button>
-
-          <p style={S.foot}>
-            Don't have an account?{' '}
-            <Link to="/register" style={{ color:'#6366F1', fontWeight:600 }}>
-              Create one
-            </Link>
-          </p>
-
-          <p style={S.hint}>
-            Logging in records your punch-in time automatically.
-          </p>
-        </form>
-      </div>
+        <p style={S.hint}>
+          Logging in records your punch-in time automatically.
+        </p>
+      </form>
     </div>
   );
 }
 
-/* ================= STYLES (UPGRADED) ================= */
+/* ================= STYLES ================= */
 const S = {
-  page:{ display:'flex', minHeight:'100vh', background:'#F8FAFC' },
-
-  left:{
-    width:'45%',
-    background:'linear-gradient(135deg,#4F46E5,#7C3AED)',
+  page:{
+    minHeight:'100vh',
     display:'flex',
     alignItems:'center',
     justifyContent:'center',
-    position:'relative',
-    padding:60,
-    overflow:'hidden'
+    background:'#F8FAFC'
   },
-
-  blob1:{ position:'absolute', width:500, height:500, borderRadius:'50%', background:'rgba(255,255,255,.08)', top:-150, right:-150 },
-  blob2:{ position:'absolute', width:350, height:350, borderRadius:'50%', background:'rgba(255,255,255,.06)', bottom:-100, left:-80 },
-
-  leftInner:{ zIndex:1, maxWidth:380, color:'#fff' },
-
-  logoBox:{
-    width:64,
-    height:64,
-    background:'rgba(255,255,255,.15)',
-    borderRadius:16,
-    display:'flex',
-    alignItems:'center',
-    justifyContent:'center',
-    marginBottom:24
-  },
-
-  leftH:{ fontSize:'34px', fontWeight:800, marginBottom:14 },
-  leftP:{ fontSize:'14px', opacity:0.85, marginBottom:28 },
-
-  feat:{ display:'flex', gap:10, fontSize:'14px' },
-  featDot:{ width:7, height:7, borderRadius:'50%', background:'#C7D2FE' },
-
-  right:{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' },
 
   form:{
     width:'100%',
@@ -215,6 +142,7 @@ const S = {
   },
 
   h1:{ fontSize:'20px', fontWeight:700 },
+
   sub:{ fontSize:'13px', color:'#6B7280', marginBottom:20 },
 
   input:{
@@ -249,10 +177,11 @@ const S = {
   },
 
   foot:{ textAlign:'center', marginTop:18, fontSize:'13px' },
+
   hint:{ textAlign:'center', fontSize:'12px', color:'#9CA3AF' }
 };
 
-/* ICONS SAME */
+/* ================= ICONS ================= */
 const LogoIcon = ({ size = 24 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24"
     fill="none" stroke="currentColor" strokeWidth="1.8">
