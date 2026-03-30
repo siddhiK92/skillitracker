@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth }  from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
-import { initials, avatarColor, fmtTime, calcHours, fmtMs, today } from '../utils/helpers';
+import { initials, avatarColor, fmtTime, calcHours, today } from '../utils/helpers';
 import MyHistory from './MyHistory';
 
 export default function Dashboard() {
@@ -21,7 +21,7 @@ export default function Dashboard() {
   const timerRef = useRef(null);
 
   useEffect(() => {
-    timerRef.current = setInterval(() => setUsers(u => [...u]), 60000); // re-render every minute for live hours
+    timerRef.current = setInterval(() => setUsers(u => [...u]), 60000);
     return () => clearInterval(timerRef.current);
   }, []);
 
@@ -47,7 +47,17 @@ export default function Dashboard() {
       const { data } = await api.patch('/users/status', { status: ns });
       updateUser(data.user);
       setUsers(p => p.map(u => u._id === data.user._id ? data.user : u));
-      toast.success(ns === 'leave' ? 'Marked as On Leave' : 'Back to Online');
+      toast.success(ns === 'leave' ? '🏖 Marked as On Leave' : '✅ Back to Online');
+    } catch { toast.error('Failed'); }
+  };
+
+  const handleAFK = async () => {
+    const ns = user.status === 'afk' ? 'online' : 'afk';
+    try {
+      const { data } = await api.patch('/users/status', { status: ns });
+      updateUser(data.user);
+      setUsers(p => p.map(u => u._id === data.user._id ? data.user : u));
+      toast.success(ns === 'afk' ? '💤 Marked as AFK' : '✅ Back to Online');
     } catch { toast.error('Failed'); }
   };
 
@@ -86,69 +96,114 @@ export default function Dashboard() {
 
   const getHours = u => {
     if (!u.loginTime) return '—';
-    if (u.status === 'online') return calcHours(u.loginTime, null, true);
+    if (u.status === 'online' || u.status === 'afk') return calcHours(u.loginTime, null, true);
     if (u.logoutTime) return calcHours(u.loginTime, u.logoutTime, false);
     return '—';
+  };
+
+  const getStatusBadge = status => {
+    switch(status) {
+      case 'online':  return { label:'🟢 Online',   bg:'#D1FAE5', color:'#065F46' };
+      case 'afk':     return { label:'💤 AFK',       bg:'#FEF3C7', color:'#92400E' };
+      case 'leave':   return { label:'🏖 On Leave',  bg:'#FEF3C7', color:'#92400E' };
+      default:        return { label:'⚫ Offline',   bg:'#F1F5F9', color:'#475569' };
+    }
   };
 
   const eodMap = {};
   todayEODs.forEach(e => { eodMap[e.user?._id || e.user] = e; });
 
   const online  = users.filter(u => u.status === 'online').length;
+  const afk     = users.filter(u => u.status === 'afk').length;
   const offline = users.filter(u => u.status === 'offline').length;
   const leave   = users.filter(u => u.status === 'leave').length;
+
   const isLeave = user?.status === 'leave';
+  const isAFK   = user?.status === 'afk';
 
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg)' }}>
-      {/* Header */}
+
+      {/* ── Header ── */}
       <header style={S.header}>
         <div style={S.logoRow}>
           <div style={S.logoBox}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="18" rx="2"/><path d="M9 22V12h6v10"/><path d="M8 7h.01M12 7h.01M16 7h.01"/>
+              <rect x="2" y="3" width="20" height="18" rx="2"/>
+              <path d="M9 22V12h6v10"/>
+              <path d="M8 7h.01M12 7h.01M16 7h.01"/>
             </svg>
           </div>
           <span style={S.logoText}>SkilliTrack</span>
         </div>
+
         <div style={S.headerRight}>
+          {/* User chip */}
           {user && (
             <div style={S.userChip}>
-              <div style={{ ...S.avatar, background: user.color || avatarColor(user.name) }}>{initials(user.name)}</div>
+              <div style={{ ...S.avatar, background: user.color || avatarColor(user.name) }}>
+                {initials(user.name)}
+              </div>
               <div className="hide-sm">
                 <div style={S.uName}>{user.name}</div>
                 <div style={S.uRole}>{user.role || 'Team Member'}</div>
               </div>
             </div>
           )}
-          {/* My History button */}
-          <button className="btn btn-sm hide-xs"
-            onClick={() => setShowHistory(true)}
+
+          {/* My History */}
+          <button className="btn btn-sm hide-xs" onClick={() => setShowHistory(true)}
             style={{ background:'rgba(255,255,255,.1)', color:'rgba(255,255,255,.8)', border:'1px solid rgba(255,255,255,.15)' }}>
             📋 My History
           </button>
+
+          {/* Admin Panel */}
           {isAdmin && (
             <Link to="/admin" className="btn btn-sm" style={{ background:'#4338CA', color:'#fff' }}>
               <ShieldIcon /> <span className="hide-xs">Admin</span>
             </Link>
           )}
-          <button className={`btn btn-sm ${isLeave ? 'btn-success' : 'btn-amber'}`} onClick={handleLeave}>
-            {isLeave ? '✓ Back Online' : 'On Leave'}
+
+          {/* AFK button */}
+          <button className="btn btn-sm" onClick={handleAFK}
+            style={{
+              background: isAFK ? '#FEF3C7' : 'rgba(255,255,255,.1)',
+              color:      isAFK ? '#92400E'  : 'rgba(255,255,255,.8)',
+              border:     `1px solid ${isAFK ? '#FDE68A' : 'rgba(255,255,255,.15)'}`,
+              fontWeight: 600,
+            }}>
+            {isAFK ? '✅ Back Online' : '💤 AFK'}
           </button>
-          <button className="btn btn-sm btn-danger" onClick={handleLogout}>
+
+          {/* On Leave button */}
+          <button className="btn btn-sm" onClick={handleLeave}
+            style={{
+              background: isLeave ? '#D1FAE5' : 'rgba(255,255,255,.1)',
+              color:      isLeave ? '#065F46'  : 'rgba(255,255,255,.8)',
+              border:     `1px solid ${isLeave ? '#A7F3D0' : 'rgba(255,255,255,.15)'}`,
+              fontWeight: 600,
+            }}>
+            {isLeave ? '✅ Back Online' : '🏖 On Leave'}
+          </button>
+
+          {/* Punch Out */}
+          <button className="btn btn-sm" onClick={handleLogout}
+            style={{ background:'rgba(239,68,68,.15)', color:'#FCA5A5', border:'1px solid rgba(239,68,68,.25)', fontWeight:600 }}>
             <LogoutIcon /> <span className="hide-xs">Punch Out</span>
           </button>
         </div>
       </header>
 
       <div style={S.body}>
-        {/* Stats */}
+
+        {/* ── Stats ── */}
         <div style={S.statRow}>
           {[
-            { label:'Total Members', value:users.length, color:'#6366F1' },
-            { label:'Online Now',    value:online,        color:'#10B981' },
-            { label:'Offline',       value:offline,       color:'#EF4444' },
-            { label:'On Leave',      value:leave,         color:'#F59E0B' },
+            { label:'Total Members', value:users.length,      color:'#6366F1' },
+            { label:'Online Now',    value:online,             color:'#10B981' },
+            { label:'AFK',           value:afk,                color:'#F59E0B' },
+            { label:'On Leave',      value:leave,              color:'#06B6D4' },
+            { label:'Offline',       value:offline,            color:'#EF4444' },
           ].map(s => (
             <div key={s.label} style={S.stat}>
               <div style={{ position:'absolute', top:0, left:0, width:4, height:'100%', background:s.color, borderRadius:'12px 0 0 12px' }} />
@@ -158,12 +213,12 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Section header */}
+        {/* ── Section header ── */}
         <div style={S.sectionHead}>
           <div>
             <h2 style={S.sectionTitle}>Team Members</h2>
             <p style={S.sectionSub}>
-              {online} online · {offline} offline · {leave} on leave — {new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short',year:'numeric'})}
+              {online} online · {afk} afk · {leave} on leave · {offline} offline — {new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short',year:'numeric'})}
             </p>
           </div>
           <button className="btn btn-primary btn-sm" onClick={openEOD}>
@@ -171,7 +226,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Table */}
+        {/* ── Table ── */}
         {loading ? (
           <div style={{ textAlign:'center', padding:48, color:'var(--text-2)' }}>Loading…</div>
         ) : (
@@ -189,49 +244,83 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => {
+                {users.length === 0 ? (
+                  <tr><td colSpan={7} style={{ textAlign:'center', padding:48, color:'var(--text-3)' }}>No team members found.</td></tr>
+                ) : users.map(u => {
                   const isMe   = u._id === user?._id;
                   const hasEOD = !!eodMap[u._id];
+                  const badge  = getStatusBadge(u.status);
                   return (
                     <tr key={u._id}>
+                      {/* Member */}
                       <td>
                         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                           <div style={{ position:'relative' }}>
-                            <div style={{ width:36, height:36, borderRadius:10, background: u.color || avatarColor(u.name), display:'grid', placeItems:'center', fontFamily:'Outfit,sans-serif', fontWeight:700, fontSize:'.74rem', color:'#fff' }}>{initials(u.name)}</div>
-                            <span className={`dot dot-${u.status}`} style={{ position:'absolute', bottom:-1, right:-1, border:'2px solid #fff' }} />
+                            <div style={{ width:36, height:36, borderRadius:10, background:u.color||avatarColor(u.name), display:'grid', placeItems:'center', fontFamily:'Outfit,sans-serif', fontWeight:700, fontSize:'.74rem', color:'#fff' }}>
+                              {initials(u.name)}
+                            </div>
+                            {/* Status dot */}
+                            <span style={{
+                              position:'absolute', bottom:-1, right:-1,
+                              width:10, height:10, borderRadius:'50%', border:'2px solid #fff',
+                              background: u.status==='online'?'#10B981': u.status==='afk'?'#F59E0B': u.status==='leave'?'#06B6D4': '#94A3B8',
+                            }} />
                           </div>
                           <div>
                             <div style={{ fontWeight:600, fontSize:'.85rem', display:'flex', alignItems:'center', gap:6 }}>
                               {u.name}
-                              {isMe && <span style={{ fontSize:'.64rem', background:'var(--primary-l)', color:'var(--primary)', padding:'1px 7px', borderRadius:99, fontWeight:700 }}>You</span>}
+                              {isMe && <span style={{ fontSize:'.64rem', background:'#EEF2FF', color:'#6366F1', padding:'1px 7px', borderRadius:99, fontWeight:700 }}>You</span>}
                             </div>
-                            <div style={{ fontSize:'.72rem', color:'var(--text-2)' }}>{u.role || 'Team Member'}</div>
+                            <div style={{ fontSize:'.72rem', color:'var(--text-2)' }}>{u.role||'Team Member'}</div>
                           </div>
                         </div>
                       </td>
+
+                      {/* Status badge */}
                       <td>
-                        <span className={`badge badge-${u.status}`}>
-                          {u.status === 'online' ? 'Online' : u.status === 'leave' ? 'On Leave' : 'Offline'}
+                        <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:99, fontSize:'.74rem', fontWeight:600, background:badge.bg, color:badge.color }}>
+                          {badge.label}
                         </span>
                       </td>
-                      <td style={{ fontFamily:'monospace', fontSize:'.8rem', color:'var(--text-2)' }}>{fmtTime(u.loginTime)}</td>
+
+                      {/* Login time */}
                       <td style={{ fontFamily:'monospace', fontSize:'.8rem', color:'var(--text-2)' }}>
-                        {u.status === 'online'
-                          ? <span style={{ display:'flex', alignItems:'center', gap:5, color:'var(--green)', fontSize:'.78rem' }}><span style={{ width:6, height:6, borderRadius:'50%', background:'var(--green)', display:'inline-block' }} />Active</span>
+                        {fmtTime(u.loginTime)}
+                      </td>
+
+                      {/* Logout time */}
+                      <td style={{ fontFamily:'monospace', fontSize:'.8rem', color:'var(--text-2)' }}>
+                        {u.status === 'online' || u.status === 'afk'
+                          ? <span style={{ display:'flex', alignItems:'center', gap:5, color:'#10B981', fontSize:'.78rem' }}>
+                              <span style={{ width:6, height:6, borderRadius:'50%', background:'#10B981', display:'inline-block', animation:'pulse-dot 2s infinite' }} />
+                              Active
+                            </span>
                           : fmtTime(u.logoutTime)
                         }
                       </td>
+
+                      {/* Working hours */}
                       <td>
-                        <span style={{ fontWeight:700, color: u.status==='online'?'var(--green)':'var(--primary)', fontSize:'.84rem', background: u.status==='online'?'#D1FAE5':'var(--primary-l)', padding:'3px 10px', borderRadius:8 }}>
-                          {getHours(u)}{u.status==='online' && <span style={{ fontSize:'.62rem', marginLeft:4, opacity:.7 }}>live</span>}
+                        <span style={{
+                          fontWeight:700, fontSize:'.84rem',
+                          color: u.status==='online'?'#065F46':'#6366F1',
+                          background: u.status==='online'?'#D1FAE5':'#EEF2FF',
+                          padding:'3px 10px', borderRadius:8, display:'inline-flex', alignItems:'center', gap:4,
+                        }}>
+                          {getHours(u)}
+                          {(u.status==='online'||u.status==='afk') && <span style={{ fontSize:'.62rem', opacity:.7 }}>live</span>}
                         </span>
                       </td>
+
+                      {/* EOD */}
                       <td>
                         {hasEOD
                           ? <button className="btn btn-outline btn-sm" onClick={() => viewUserEOD(u)}>View</button>
                           : <span style={{ fontSize:'.75rem', color:'var(--text-3)' }}>Pending</span>
                         }
                       </td>
+
+                      {/* Action */}
                       <td>
                         {isMe
                           ? <button className="btn btn-primary btn-sm" onClick={openEOD}>EOD Report</button>
@@ -247,10 +336,10 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* My History Modal */}
+      {/* ── My History Modal ── */}
       {showHistory && <MyHistory onClose={() => setShowHistory(false)} />}
 
-      {/* EOD Submit Modal */}
+      {/* ── EOD Submit Modal ── */}
       {showEOD && (
         <div className="overlay" onClick={e => { if(e.target===e.currentTarget) setShowEOD(false); }}>
           <div className="modal" style={{ maxWidth:580 }}>
@@ -262,8 +351,8 @@ export default function Dashboard() {
               {new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
             </p>
             {[
-              { key:'projects',  label:'🗂 Projects Worked On',        ph:'e.g. Dashboard redesign' },
-              { key:'completed', label:'✅ Tasks Completed Today',     ph:'e.g. Fixed login bug' },
+              { key:'projects',  label:'🗂 Projects Worked On',         ph:'e.g. Dashboard redesign' },
+              { key:'completed', label:'✅ Tasks Completed Today',      ph:'e.g. Fixed login bug' },
               { key:'planned',   label:'📋 Tasks Planned for Tomorrow', ph:'e.g. Write unit tests' },
             ].map(sec => (
               <div key={sec.key} style={{ marginBottom:20 }}>
@@ -275,12 +364,12 @@ export default function Dashboard() {
                       onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();const a=[...eodForm[sec.key]];a.splice(i+1,0,'');setEodForm(f=>({...f,[sec.key]:a}));} }}
                     />
                     {eodForm[sec.key].length > 1 && (
-                      <button className="btn btn-ghost btn-sm" style={{ color:'var(--red)' }}
+                      <button className="btn btn-ghost btn-sm" style={{ color:'#EF4444' }}
                         onClick={() => { const a=[...eodForm[sec.key]]; a.splice(i,1); setEodForm(f=>({...f,[sec.key]:a})); }}>✕</button>
                     )}
                   </div>
                 ))}
-                <button className="btn btn-ghost btn-sm" style={{ width:'100%', border:'1.5px dashed var(--border)', marginTop:2 }}
+                <button className="btn btn-ghost btn-sm" style={{ width:'100%', border:'1.5px dashed #E2E8F0', marginTop:2 }}
                   onClick={() => setEodForm(f=>({...f,[sec.key]:[...f[sec.key],'']}))}>+ Add entry</button>
               </div>
             ))}
@@ -294,13 +383,15 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* EOD View Modal */}
+      {/* ── EOD View Modal ── */}
       {viewEOD && (
         <div className="overlay" onClick={e => { if(e.target===e.currentTarget) setViewEOD(null); }}>
           <div className="modal" style={{ maxWidth:580 }}>
             <div className="modal-head">
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ width:36, height:36, borderRadius:10, background: viewEOD.user.color || avatarColor(viewEOD.user.name), display:'grid', placeItems:'center', fontFamily:'Outfit,sans-serif', fontWeight:700, fontSize:'.73rem', color:'#fff' }}>{initials(viewEOD.user.name)}</div>
+                <div style={{ width:36, height:36, borderRadius:10, background:viewEOD.user.color||avatarColor(viewEOD.user.name), display:'grid', placeItems:'center', fontFamily:'Outfit,sans-serif', fontWeight:700, fontSize:'.73rem', color:'#fff' }}>
+                  {initials(viewEOD.user.name)}
+                </div>
                 <div className="modal-title">{viewEOD.user.name}'s EOD Reports</div>
               </div>
               <button className="modal-close" onClick={() => setViewEOD(null)}>✕</button>
@@ -309,14 +400,16 @@ export default function Dashboard() {
               ? <p style={{ color:'var(--text-3)', textAlign:'center', padding:24 }}>No reports yet.</p>
               : viewEOD.eods.map(e => (
                 <div key={e._id} style={{ background:'var(--bg)', borderRadius:'var(--r)', padding:'14px 16px', marginBottom:10, border:'1px solid var(--border)' }}>
-                  <div style={{ fontSize:'.74rem', fontWeight:700, color:'var(--text-2)', marginBottom:10, paddingBottom:8, borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between' }}>
-                    <span>{new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</span>
+                  <div style={{ fontSize:'.74rem', fontWeight:700, color:'var(--text-2)', marginBottom:10, paddingBottom:8, borderBottom:'1px solid var(--border)' }}>
+                    {new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
                   </div>
                   {[['Projects',e.projects],['Completed',e.completed],['Planned',e.planned]].map(([l,items]) =>
                     items?.length > 0 && (
                       <div key={l} style={{ marginBottom:10 }}>
-                        <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>{l}</div>
-                        {items.map((it,i) => <div key={i} style={{ fontSize:'.8rem', paddingLeft:12, position:'relative', marginBottom:3 }}><span style={{ position:'absolute', left:0, color:'var(--primary)' }}>•</span>{it}</div>)}
+                        <div style={{ fontSize:'.7rem', fontWeight:700, color:'#6366F1', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>{l}</div>
+                        {items.map((it,i) => <div key={i} style={{ fontSize:'.8rem', paddingLeft:12, position:'relative', marginBottom:3, color:'var(--text-1)' }}>
+                          <span style={{ position:'absolute', left:0, color:'#6366F1' }}>•</span>{it}
+                        </div>)}
                       </div>
                     )
                   )}
@@ -331,21 +424,21 @@ export default function Dashboard() {
 }
 
 const S = {
-  header:      { background:'#1E1B4B', padding:'0 28px', height:64, display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,.07)' },
+  header:      { background:'#1E1B4B', padding:'0 24px', height:64, display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,.07)' },
   logoRow:     { display:'flex', alignItems:'center', gap:10 },
-  logoBox:     { width:36, height:36, background:'rgba(99,102,241,.3)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' },
+  logoBox:     { width:36, height:36, background:'rgba(99,102,241,.3)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 },
   logoText:    { fontFamily:'Outfit,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#fff', letterSpacing:'-0.02em' },
-  headerRight: { display:'flex', alignItems:'center', gap:8 },
-  userChip:    { display:'flex', alignItems:'center', gap:9, padding:'5px 12px 5px 5px', background:'rgba(255,255,255,.08)', borderRadius:10, marginRight:4 },
+  headerRight: { display:'flex', alignItems:'center', gap:7, flexWrap:'nowrap' },
+  userChip:    { display:'flex', alignItems:'center', gap:9, padding:'5px 12px 5px 5px', background:'rgba(255,255,255,.08)', borderRadius:10, marginRight:4, flexShrink:0 },
   avatar:      { width:32, height:32, borderRadius:'50%', display:'grid', placeItems:'center', fontFamily:'Outfit,sans-serif', fontWeight:700, fontSize:'.74rem', color:'#fff', flexShrink:0 },
   uName:       { fontWeight:600, color:'#fff', fontSize:'.82rem', lineHeight:1.2 },
   uRole:       { fontSize:'.68rem', color:'rgba(255,255,255,.45)' },
-  body:        { maxWidth:1280, margin:'0 auto', padding:'28px 24px' },
-  statRow:     { display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:28 },
-  stat:        { background:'var(--surface)', borderRadius:'var(--r-lg)', padding:'18px 20px', border:'1px solid var(--border)', boxShadow:'var(--shadow)', position:'relative', overflow:'hidden' },
+  body:        { maxWidth:1300, margin:'0 auto', padding:'28px 24px' },
+  statRow:     { display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:12, marginBottom:28 },
+  stat:        { background:'#fff', borderRadius:14, padding:'16px 18px', border:'1px solid #E2E8F0', boxShadow:'0 1px 3px rgba(0,0,0,.06)', position:'relative', overflow:'hidden' },
   sectionHead: { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, gap:12 },
-  sectionTitle:{ fontFamily:'Outfit,sans-serif', fontSize:'1.05rem', fontWeight:700, color:'var(--text-1)' },
-  sectionSub:  { fontSize:'.77rem', color:'var(--text-2)', marginTop:3 },
+  sectionTitle:{ fontFamily:'Outfit,sans-serif', fontSize:'1.05rem', fontWeight:700, color:'#0F172A' },
+  sectionSub:  { fontSize:'.77rem', color:'#64748B', marginTop:3 },
 };
 
 const ShieldIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
