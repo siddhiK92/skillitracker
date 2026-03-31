@@ -33,7 +33,7 @@ async function seed() {
   }
 
   console.log('─────────────────────────────────');
-  console.log('  Email   : kawadesidhhi@gmail.com');
+  console.log('  Email   : admin@gmail.com');
   console.log('  Password: admin123');
   console.log('─────────────────────────────────');
   mongoose.disconnect();
